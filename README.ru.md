@@ -4,7 +4,7 @@
 
 Воркфлоу n8n, который сортирует заметки к заказам WooCommerce с помощью LLM и направляет каждую в Slack, Notion, Gmail, Google Sheets или Trello — в зависимости от тональности, категории и срочности. Создан как Mini-project #4 (флагман) учебного трека по AI-автоматизации.
 
-📹 **[Смотреть 3-минутное демо на Loom →](https://www.loom.com/share/e67103f7ac5a4edebde10104a9c0e505)**
+📹 **[Смотреть 1:30-минутное демо на Loom →](https://www.loom.com/share/e67103f7ac5a4edebde10104a9c0e505)**
 
 ---
 
