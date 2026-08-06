@@ -1,0 +1,762 @@
+{
+  "name": "Mini-project #4 (FLAGSHIP): «WooCommerce AI Support Agent v1»",
+  "nodes": [
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"classification\": \"negative_high\",\n  \"sentiment\": \"negative\",\n  \"urgency\": \"high\",\n  \"reason\": \"Customer reports a damaged item for the second time and demands an immediate refund.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        592,
+        224
+      ],
+      "id": "28ef44a0-5ee8-4191-a3b3-86d2cfa300f6",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.classification }}",
+                    "rightValue": "positive_low",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "fb8aaad9-5af4-4f83-95ab-ca57fe1d3664"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "positive_low"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e6f31d67-adb3-4792-b97a-7c422d1d7563",
+                    "leftValue": "={{ $json.output.classification }}",
+                    "rightValue": "negative_low",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "negative_low"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2b115634-e6b8-48a7-87bd-7f7d10bcbcb9",
+                    "leftValue": "={{ $json.output.classification }}",
+                    "rightValue": "negative_high",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "negative_high"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "91978c66-153b-4723-bcdd-f65bc3bc98a0",
+                    "leftValue": "={{ $json.output.classification }}",
+                    "rightValue": "spam",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "spam"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1008,
+        -16
+      ],
+      "id": "57e3caa4-fbae-4ce9-8802-a30c5e00f1fd",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"subject\": \"Re: your order #2807\",\n  \"body\": \"Hi Igor,\\n\\nThank you for letting us know...\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1632,
+        64
+      ],
+      "id": "784d3f6c-e8d5-4d0d-8fae-1248770a4c70",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "woo-get-orders",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        16
+      ],
+      "id": "9fbe7195-b499-4aca-8f37-c7a817a6fcca",
+      "name": "Webhook_React on new woocommerce order",
+      "webhookId": "1cd9e167-a597-43b8-ac7e-653fdc04bfb5"
+    },
+    {
+      "parameters": {
+        "jsCode": "function cleanNote(text) {\n  if (text == null) return \"\";\n  let s = String(text);\n  s = s.replace(/<[^>]*>/g, \" \");                 // вырезаем HTML-теги\n  s = s.replace(/[\\u0000-\\u001F\\u007F]/g, \" \");   // управляющие символы\n  s = s.replace(/\\s+/g, \" \").trim();              // схлопываем пробелы\n  if (s.length > 1000) s = s.slice(0, 1000).trimEnd() + \"…\"; // лимит длины\n  return s;\n}\n\nreturn $input.all().map(item => {\n  const body = item.json.body ?? item.json;       // объект заказа\n  const billing = body.billing ?? {};\n\n  const noteRaw = body.customer_note ?? \"\";\n  const noteClean = cleanNote(noteRaw);\n\n  const lineItems = Array.isArray(body.line_items) ? body.line_items : [];\n  const products = lineItems.map(li => li.name).filter(Boolean).join(\", \");\n\n  return {\n    json: {\n      order_id: body.id ?? null,\n      status: body.status ?? null,\n      currency: body.currency ?? null,\n      total: body.total ?? null,\n      customer_name: [billing.first_name, billing.last_name].filter(Boolean).join(\" \").trim() || null,\n      email: billing.email ?? null,\n      products: products || null,\n      note_raw: noteRaw,\n      note_clean: noteClean,\n      has_note: noteClean.length > 0,\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        16
+      ],
+      "id": "e191333c-ac9a-48d1-8bb2-117a07377379",
+      "name": "JS code_extract & sanitize"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a support-triage classifier for a WooCommerce store. The customer note may be in any language.\n\nClassify the note and return:\n\n- classification — exactly one of:\n  - \"spam\": gibberish, ads, promotional or unrelated text, not a genuine customer message\n  - \"negative_high\": a complaint or problem that is urgent or severe — refund demands, damaged/wrong/missing items, repeated issues, anger, threats to leave\n  - \"negative_low\": mild dissatisfaction or a minor complaint that is not urgent\n  - \"positive_low\": positive, neutral or routine notes — thanks, praise, simple requests, delivery preferences\n- sentiment — \"positive\", \"negative\" or \"neutral\"\n- urgency — \"low\" or \"high\"\n- reason — one short sentence explaining the decision\n\nclassification must be consistent with sentiment and urgency.\n\nCustomer note:\n{{ $json.note_clean }}\n",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        656,
+        16
+      ],
+      "id": "154cf2b7-16ee-40df-b0a6-80417b77405b",
+      "name": "Basic LLM Chain _ Classifier",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        224
+      ],
+      "id": "6e041d8e-d74b-4557-a422-ff22e3e135f8",
+      "name": "Chat model_Gemini 3 flash",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YFmpXUNwwlQYug2d",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "38143a1d-1a82-80c5-9d03-ee24912bc15c",
+          "mode": "list",
+          "cachedResultName": "low_orders",
+          "cachedResultUrl": "https://app.notion.com/p/38143a1d1a8280c59d03ee24912bc15c"
+        },
+        "title": "low_orders",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Order ID|number",
+              "numberValue": "={{ $('JS code_extract & sanitize').item.json.order_id }}"
+            },
+            {
+              "key": "Reason|rich_text",
+              "textContent": "={{ $('Basic LLM Chain _ Classifier').item.json.output.reason }}"
+            },
+            {
+              "key": "Sentiment|rich_text",
+              "textContent": "={{ $('Basic LLM Chain _ Classifier').item.json.output.sentiment }}"
+            },
+            {
+              "key": "Reason|rich_text",
+              "textContent": "={{ $('Basic LLM Chain _ Classifier').item.json.output.reason }}"
+            }
+          ]
+        },
+        "blockUi": {
+          "blockValues": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1488,
+        -272
+      ],
+      "id": "9811913f-a40e-487c-82b0-2919b3e5695a",
+      "name": "Create a database page_add order to the table",
+      "retryOnFail": true,
+      "credentials": {
+        "notionApi": {
+          "id": "pavxbglkGzRXpvxa",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1488,
+        64
+      ],
+      "id": "e64b5726-28d6-434f-99a4-c5698de435a3",
+      "name": "Chat Model_Gemini 3 flash",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YFmpXUNwwlQYug2d",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.output.subject }}",
+        "message": "={{ $json.output.body }}",
+        "options": {
+          "sendTo": "={{ $('JS code_extract & sanitize').item.json.email }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1776,
+        -80
+      ],
+      "id": "29397aa2-759c-4968-8e91-e52e9f5434ca",
+      "name": "Create a draft_reply cx",
+      "webhookId": "5755780d-54a4-4f3c-bea3-4fee494deb60",
+      "retryOnFail": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TGPGnTpk97x3JdhT",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a customer support agent for a WooCommerce store. Write a short, empathetic reply email about the customer's order note.\n\nRules:\n- Acknowledge the specific issue and apologize for the inconvenience.\n- Warm, professional, concise (4–6 sentences).\n- Offer to help and ask for any detail you need to resolve it.\n- Do NOT promise a specific refund, discount or compensation — a human agent decides that.\n- Reply in the same language as the customer's note.\n\nOrder #{{ $('JS code_extract & sanitize').item.json.order_id }}, customer {{ $('JS code_extract & sanitize').item.json.customer_name }}.\nCustomer note: {{ $('JS code_extract & sanitize').item.json.note_clean }}",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1488,
+        -80
+      ],
+      "id": "b7a8505d-0da7-4110-8362-359c66887ae4",
+      "name": "Basic LLM Chain_Create reply for cx",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "listId": "6a313a6cbe4009c2e909817b",
+        "name": "=Order #{{ $('JS code_extract & sanitize').item.json.order_id }} — {{ $('JS code_extract & sanitize').item.json.customer_name }}",
+        "description": "=**Status:** {{ $('JS code_extract & sanitize').item.json.status }}\n**Email:** {{ $('JS code_extract & sanitize').item.json.email }}\n**Total:** {{ $('JS code_extract & sanitize').item.json.total }} {{ $('JS code_extract & sanitize').item.json.currency }}\n**Product:** {{ $('JS code_extract & sanitize').item.json.products }}\n\n**Customer note:** {{ $('JS code_extract & sanitize').item.json.note_clean }}\n\n**AI verdict ({{ $json.output.urgency }} urgency):** {{ $json.output.reason }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        240
+      ],
+      "id": "364489f4-e673-4c85-af98-11c2328728f1",
+      "name": "Create a card_add order",
+      "retryOnFail": true,
+      "credentials": {
+        "trelloApi": {
+          "id": "YIAl5OmZOqkK5FpT",
+          "name": "Trello account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#happy",
+          "mode": "name"
+        },
+        "text": "=Order ID  {{ $('JS code_extract & sanitize').item.json.order_id }} with status {{ $('JS code_extract & sanitize').item.json.status }} has a low-urgency status",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1200,
+        -304
+      ],
+      "id": "e7822ccd-6a9d-424e-8aa0-703194180e02",
+      "name": "Send a message to #happy",
+      "webhookId": "dbf81f75-9419-487d-a5d9-c8166a55c45b",
+      "retryOnFail": true,
+      "credentials": {
+        "slackApi": {
+          "id": "H2hQS2lxusV8IZYi",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#all-test-workspace",
+          "mode": "name"
+        },
+        "text": "spam message recieved",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1152,
+        304
+      ],
+      "id": "e4f7919d-4124-4fff-9833-6cc724f7a049",
+      "name": "Send a message to #all-test_workspace",
+      "webhookId": "c5f42340-53af-4c4e-b62c-805f25137048",
+      "retryOnFail": true,
+      "credentials": {
+        "slackApi": {
+          "id": "H2hQS2lxusV8IZYi",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#allerts",
+          "mode": "name"
+        },
+        "text": "=:rotating_light: *СРОЧНО: негативный заказ* #{{ $('JS code_extract & sanitize').item.json.order_id }} <!channel>\n\n*Клиент:* {{ $('JS code_extract & sanitize').item.json.customer_name }} ({{ $('JS code_extract & sanitize').item.json.email }})\n*Сумма:* {{ $('JS code_extract & sanitize').item.json.total }} {{ $('JS code_extract & sanitize').item.json.currency }}\n*Заметка:* {{ $('JS code_extract & sanitize').item.json.note_clean }}\n*Вердикт AI:* {{ $json.output.reason }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1536,
+        400
+      ],
+      "id": "099528f4-b648-4f38-85d1-a6a62b7f6e64",
+      "name": "Send a message to #allerts",
+      "webhookId": "1194a848-266b-4f01-96d0-63bedf263163",
+      "retryOnFail": true,
+      "credentials": {
+        "slackApi": {
+          "id": "H2hQS2lxusV8IZYi",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1JYJL9VNxgaPRgO4xZKfLUVDFZsJp1J5JOMGJun2aoDQ",
+          "mode": "list",
+          "cachedResultName": "Mini-project: WooCommerce AI Support Agent v1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JYJL9VNxgaPRgO4xZKfLUVDFZsJp1J5JOMGJun2aoDQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "low-urgency-status",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JYJL9VNxgaPRgO4xZKfLUVDFZsJp1J5JOMGJun2aoDQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Id": "={{ $('JS code_extract & sanitize').item.json.order_id }}",
+            "Status": "={{ $('JS code_extract & sanitize').item.json.status }}",
+            "Customer": "={{ $('JS code_extract & sanitize').item.json.customer_name }}",
+            "Product": "={{ $('JS code_extract & sanitize').item.json.products }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Customer",
+              "displayName": "Customer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product",
+              "displayName": "Product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1200,
+        -496
+      ],
+      "id": "a63cb506-6a7b-4c79-966a-e65c98617e4c",
+      "name": "Append row in Mini-project: WooCommerce AI Support Agent v1",
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "bwL4biXT3tUpDfCV",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ $json.order_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        432,
+        16
+      ],
+      "id": "d3af1b69-3319-4823-ac17-0ee9bf47d511",
+      "name": "Remove Duplicates"
+    }
+  ],
+  "pinData": {
+    "Webhook_React on new woocommerce order": [
+      {
+        "json": {
+          "headers": {
+            "user-agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.7462",
+            "content-type": "application/json",
+            "host": "localhost:5678",
+            "content-length": "668",
+            "expect": "100-continue",
+            "connection": "Keep-Alive"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "id": 2807,
+            "parent_id": 0,
+            "status": "processing",
+            "currency": "UAH",
+            "version": "10.8.1",
+            "prices_include_tax": false,
+            "date_created": "2026-06-16T10:15:00",
+            "customer_id": 1,
+            "customer_note": "Honestly a bit disappointed with this order — the item arrived with a scratch and the box was damaged. I'm not asking for anything urgent, but I wanted to let you know I expected better for the price.",
+            "billing": {
+              "first_name": "Igor",
+              "last_name": "Gorshkov",
+              "email": "test@test.com",
+              "phone": "+380000000000"
+            },
+            "payment_method": "cod",
+            "payment_method_title": "Cash on delivery",
+            "total": "45.00",
+            "line_items": [
+              {
+                "id": 1,
+                "name": "Rival Field Messenger",
+                "product_id": 12,
+                "quantity": 1,
+                "total": "45.00"
+              }
+            ]
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/woo-get-orders",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain _ Classifier",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Send a message to #happy",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append row in Mini-project: WooCommerce AI Support Agent v1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a database page_add order to the table",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Basic LLM Chain_Create reply for cx",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message to #allerts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create a card_add order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message to #all-test_workspace",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message to #all-test_workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain_Create reply for cx",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook_React on new woocommerce order": {
+      "main": [
+        [
+          {
+            "node": "JS code_extract & sanitize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JS code_extract & sanitize": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain _ Classifier": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat model_Gemini 3 flash": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain _ Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Model_Gemini 3 flash": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain_Create reply for cx",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain_Create reply for cx": {
+      "main": [
+        [
+          {
+            "node": "Create a draft_reply cx",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message to #happy": {
+      "main": [
+        []
+      ]
+    },
+    "Send a message to #allerts": {
+      "main": [
+        []
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain _ Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1ceafc0c-7846-43a1-b1da-d9cbfc3576d6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0601eddfbc2a7fcfad84a70b204124c36d812a4fe35157d2ea615b1e68c82c6"
+  },
+  "nodeGroups": [],
+  "id": "KBm119JfHuhiXhgR",
+  "tags": []
+}
