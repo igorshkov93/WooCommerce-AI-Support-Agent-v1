@@ -4,7 +4,7 @@
 
 An n8n workflow that triages incoming WooCommerce order notes with an LLM and routes each one to Slack, Notion, Gmail, Google Sheets, or Trello based on sentiment, category, and urgency. Built as Mini-project #4 (flagship) of an AI-automation training track.
 
-📹 **[Watch the 3-minute demo on Loom →](https://www.loom.com/share/e67103f7ac5a4edebde10104a9c0e505)**
+📹 **[Watch the 1:30-minute demo on Loom →](https://www.loom.com/share/e67103f7ac5a4edebde10104a9c0e505)**
 
 ---
 
